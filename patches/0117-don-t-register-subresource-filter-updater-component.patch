@@ -1,0 +1,21 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zoraver Kang <Zoraver@users.noreply.github.com>
+Date: Mon, 4 Jul 2022 14:28:02 -0400
+Subject: [PATCH] don't register subresource filter updater component
+
+---
+ chrome/browser/component_updater/registration.cc | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/chrome/browser/component_updater/registration.cc b/chrome/browser/component_updater/registration.cc
+index 9ba5383b6297d..1cea575a9175f 100644
+--- a/chrome/browser/component_updater/registration.cc
++++ b/chrome/browser/component_updater/registration.cc
+@@ -133,7 +133,6 @@ void RegisterComponentsForUpdate() {
+ #endif  // BUILDFLAG(IS_CHROMEOS_ASH)
+ #endif  // BUILDFLAG(ENABLE_NACL) && !BUILDFLAG(IS_ANDROID)
+ 
+-  RegisterSubresourceFilterComponent(cus);
+   RegisterOnDeviceHeadSuggestComponent(
+       cus, g_browser_process->GetApplicationLocale());
+   RegisterOptimizationHintsComponent(cus);

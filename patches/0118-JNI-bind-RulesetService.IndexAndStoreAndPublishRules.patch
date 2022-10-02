@@ -1,0 +1,113 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Zoraver Kang <Zoraver@users.noreply.github.com>
+Date: Mon, 26 Sep 2022 23:43:14 -0400
+Subject: [PATCH] JNI bind
+ RulesetService.IndexAndStoreAndPublishRulesetIfNeeded()
+
+---
+ .../subresource_filter/android/BUILD.gn       |  3 ++
+ .../subresource_filter/RulesetUpdater.java    | 22 +++++++++++
+ .../android/ruleset_updater.cc                | 37 +++++++++++++++++++
+ 3 files changed, 62 insertions(+)
+ create mode 100644 components/subresource_filter/android/java/src/org/chromium/components/subresource_filter/RulesetUpdater.java
+ create mode 100644 components/subresource_filter/android/ruleset_updater.cc
+
+diff --git a/components/subresource_filter/android/BUILD.gn b/components/subresource_filter/android/BUILD.gn
+index 6cfccda2b78b5..c463664f7020d 100644
+--- a/components/subresource_filter/android/BUILD.gn
++++ b/components/subresource_filter/android/BUILD.gn
+@@ -9,6 +9,7 @@ generate_jni("subresource_filter_jni_headers") {
+     "java/src/org/chromium/components/subresource_filter/AdsBlockedDialog.java",
+     "java/src/org/chromium/components/subresource_filter/AdsBlockedInfoBar.java",
+     "java/src/org/chromium/components/subresource_filter/SubresourceFilterFeatureList.java",
++    "java/src/org/chromium/components/subresource_filter/RulesetUpdater.java",
+   ]
+ }
+ 
+@@ -17,6 +18,7 @@ android_library("java") {
+     "java/src/org/chromium/components/subresource_filter/AdsBlockedDialog.java",
+     "java/src/org/chromium/components/subresource_filter/AdsBlockedInfoBar.java",
+     "java/src/org/chromium/components/subresource_filter/SubresourceFilterFeatureList.java",
++    "java/src/org/chromium/components/subresource_filter/RulesetUpdater.java",
+   ]
+   deps = [
+     ":java_resources",
+@@ -55,6 +57,7 @@ source_set("android") {
+     "ads_blocked_dialog.cc",
+     "ads_blocked_dialog.h",
+     "subresource_filter_feature_list.cc",
++    "ruleset_updater.cc",
+   ]
+   deps = [
+     ":subresource_filter_jni_headers",
+diff --git a/components/subresource_filter/android/java/src/org/chromium/components/subresource_filter/RulesetUpdater.java b/components/subresource_filter/android/java/src/org/chromium/components/subresource_filter/RulesetUpdater.java
+new file mode 100644
+index 0000000000000..d6d28bcce3560
+--- /dev/null
++++ b/components/subresource_filter/android/java/src/org/chromium/components/subresource_filter/RulesetUpdater.java
+@@ -0,0 +1,22 @@
++// Copyright 2022 Zoraver Kang
++
++package org.chromium.components.subresource_filter;
++
++import org.chromium.base.annotations.JNINamespace;
++import org.chromium.base.annotations.NativeMethods;
++
++@JNINamespace("subresource_filter")
++public class RulesetUpdater {
++
++    public static void update(String unindexedRulesetPath,
++      String unindexedContentVersion) {
++        RulesetUpdaterJni.get().update(unindexedRulesetPath,
++          unindexedContentVersion);  
++    }
++
++    @NativeMethods
++    interface Natives {
++    void update(String unindexedRulesetPath,
++      String unindexedContentVersion);
++  }
++}
+diff --git a/components/subresource_filter/android/ruleset_updater.cc b/components/subresource_filter/android/ruleset_updater.cc
+new file mode 100644
+index 0000000000000..cb2b8ea73fb0d
+--- /dev/null
++++ b/components/subresource_filter/android/ruleset_updater.cc
+@@ -0,0 +1,37 @@
++// Copyright 2022 Zoraver Kang
++
++#include "base/android/jni_android.h"
++#include "base/android/jni_string.h"
++#include "chrome/browser/browser_process.h"
++#include "components/subresource_filter/android/subresource_filter_jni_headers/RulesetUpdater_jni.h"
++#include "components/subresource_filter/content/browser/ruleset_service.h"
++#include "components/subresource_filter/content/browser/ruleset_version.h"
++
++using base::android::ConvertJavaStringToUTF8;
++using base::android::JavaParamRef;
++
++namespace subresource_filter {
++
++static void JNI_RulesetUpdater_Update(JNIEnv* env,
++    const JavaParamRef<jstring>& junindexed_ruleset_path,
++    const JavaParamRef<jstring>& junindexed_content_version) {
++  const std::string unindexed_ruleset_path =
++      ConvertJavaStringToUTF8(env, junindexed_ruleset_path);
++  const std::string unindexed_content_version =
++      ConvertJavaStringToUTF8(env, junindexed_content_version);
++
++  subresource_filter::UnindexedRulesetInfo ruleset_info;
++  ruleset_info.content_version = unindexed_content_version;
++  // We know that unindexed_ruleset_path is UTF8 since it is the output of
++  // ConvertJavaStringToUTF8().
++  ruleset_info.ruleset_path =
++      base::FilePath::FromUTF8Unsafe(unindexed_ruleset_path);
++
++  subresource_filter::RulesetService* ruleset_service =
++      g_browser_process->subresource_filter_ruleset_service();
++  if (ruleset_service) {
++    ruleset_service->IndexAndStoreAndPublishRulesetIfNeeded(ruleset_info);
++  }
++}
++
++} // namespace subresource_filter
